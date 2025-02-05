@@ -277,6 +277,7 @@ export const getSalespersonOrders = async (req: Request, res: Response): Promise
                 distributorPrice: true,
                 retailerPrice: true,
                 mrp: true,
+                imageUrl: true,
               },
             },
             variantId: true, // Include variantId if needed
