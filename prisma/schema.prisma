@@ -170,3 +170,17 @@ enum OrderStatus {
   DELIVERED
   CANCELED
 }
+
+model ProductInventory {
+  id             Int           @default(autoincrement())
+  productId      Int           @id
+  productName    String
+  quantity       Int
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+
+  reserve1       String         @default("USE ME LATER")
+  reserve2       String         @default("USE ME LATER")
+  reserve3       String         @default("USE ME LATER")
+}

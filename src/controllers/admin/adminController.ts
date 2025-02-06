@@ -1,19 +1,26 @@
-import { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
-import {prisma} from "../../config/db"
-import { adminLoginSchema, adminSignupSchema } from '../../schema/admin/adminAuthSchema';
-import multer from 'multer';
-import { categorySchema, productSchema, productVariantSchema } from '../../schema/admin/productSchema';
-import { generateSkuId } from '../../helper/generateSkuId';
-import { z } from 'zod';
+import { Request, Response } from "express";
+import bcrypt from "bcrypt";
+import { prisma } from "../../config/db";
+import {
+  adminLoginSchema,
+  adminSignupSchema,
+} from "../../schema/admin/adminAuthSchema";
+import multer from "multer";
+import {
+  categorySchema,
+  productSchema,
+  productVariantSchema,
+} from "../../schema/admin/productSchema";
+import { generateSkuId } from "../../helper/generateSkuId";
+import { z } from "zod";
 const saltRounds = 10;
-import { v2 as cloudinary } from 'cloudinary';
-import fs from 'fs';
-import path from 'path';
+import { v2 as cloudinary } from "cloudinary";
+import fs from "fs";
+import path from "path";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = 'uploads/';
+    const uploadDir = "uploads/";
     // Create uploads directory if it doesn't exist
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir);
@@ -29,21 +36,22 @@ const upload = multer({ storage: storage });
 
 // Configure cloudinary
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dcrkqaq20',
-  api_key: process.env.CLOUDINARY_API_KEY || '945669894999448',
-  api_secret: process.env.CLOUDINARY_API_SECRET || '0Zn8LRb9E6PCNzvAWMZe0_JgFVU',
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "dcrkqaq20",
+  api_key: process.env.CLOUDINARY_API_KEY || "945669894999448",
+  api_secret:
+    process.env.CLOUDINARY_API_SECRET || "0Zn8LRb9E6PCNzvAWMZe0_JgFVU",
 });
 
 // Signup Function with Zod Validation
-export const signup = async (req: Request, res: Response)=> {
+export const signup = async (req: Request, res: Response) => {
   // Validate request body using Zod
   const validation = adminSignupSchema.safeParse(req.body);
-  
+
   if (!validation.success) {
     // Extract error messages from Zod validation
-    const errorMessages = validation.error.errors.map(e => e.message);
-   res.status(400).json({ message: errorMessages });
-   return
+    const errorMessages = validation.error.errors.map((e) => e.message);
+    res.status(400).json({ message: errorMessages });
+    return;
   }
 
   const { email, password } = validation.data; // Safe access to validated data
@@ -51,8 +59,8 @@ export const signup = async (req: Request, res: Response)=> {
   try {
     const existingAdmin = await prisma.admin.findUnique({ where: { email } });
     if (existingAdmin) {
-       res.status(400).json({ message: 'Email is already registered' });
-       return
+      res.status(400).json({ message: "Email is already registered" });
+      return;
     }
 
     const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -64,25 +72,28 @@ export const signup = async (req: Request, res: Response)=> {
       },
     });
 
-     res.status(201).json({
-      message: 'Admin created successfully',
+    res.status(201).json({
+      message: "Admin created successfully",
       admin: {
         id: newAdmin.id,
         email: newAdmin.email,
       },
     });
-    return
+    return;
   } catch (error) {
-     res.status(500).json({ message: 'Internal Server Error' });
-     return
+    res.status(500).json({ message: "Internal Server Error" });
+    return;
   }
 };
 
-export const createCategory = async (req: Request, res: Response): Promise<void> => {
+export const createCategory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const validation = categorySchema.safeParse(req.body);
 
   if (!validation.success) {
-    const errorMessages = validation.error.errors.map(e => e.message);
+    const errorMessages = validation.error.errors.map((e) => e.message);
     res.status(400).json({ message: errorMessages });
     return;
   }
@@ -97,17 +108,17 @@ export const createCategory = async (req: Request, res: Response): Promise<void>
     });
 
     res.status(201).json({
-      message: 'Category created successfully',
+      message: "Category created successfully",
       category: newCategory,
     });
   } catch (error) {
-    console.log('Error creating category:', error); // Log the error for debugging
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.log("Error creating category:", error); // Log the error for debugging
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
 export const createProduct = [
-  upload.single('image'), // Use multer to handle 'image' field from form-data
+  upload.single("image"), // Use multer to handle 'image' field from form-data
   async (req: Request, res: Response): Promise<void> => {
     try {
       // Parse and convert req.body fields to expected types
@@ -130,23 +141,31 @@ export const createProduct = [
         return;
       }
 
-      const { name, distributorPrice, retailerPrice, mrp, categoryId, inventoryCount, variants } = validation.data;
-      let imageUrl = '';
-      
+      const {
+        name,
+        distributorPrice,
+        retailerPrice,
+        mrp,
+        categoryId,
+        inventoryCount,
+        variants,
+      } = validation.data;
+      let imageUrl = "";
+
       // Handle image upload to Cloudinary
       if (req.file) {
         try {
           const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: 'products',
-            resource_type: 'auto',
+            folder: "products",
+            resource_type: "auto",
           });
           imageUrl = result.secure_url;
-          
+
           // Clean up temporary file
           fs.unlinkSync(req.file.path);
         } catch (uploadError) {
-          console.error('Cloudinary upload error:', uploadError);
-          res.status(500).json({ message: 'Image upload failed' });
+          console.error("Cloudinary upload error:", uploadError);
+          res.status(500).json({ message: "Image upload failed" });
           return;
         }
       }
@@ -164,7 +183,9 @@ export const createProduct = [
         skuId,
         inventoryCount,
         imageUrl,
-        ...(variants && variants.length ? { variants: { create: variants } } : {}),
+        ...(variants && variants.length
+          ? { variants: { create: variants } }
+          : {}),
       };
 
       // Create the new product in the database
@@ -174,7 +195,7 @@ export const createProduct = [
 
       // Send success response
       res.status(201).json({
-        message: 'Product created successfully',
+        message: "Product created successfully",
         product: {
           id: newProduct.id,
           name: newProduct.name,
@@ -184,10 +205,9 @@ export const createProduct = [
         },
       });
     } catch (error) {
-      console.error('Error creating product:', error);
-      res.status(500).json({ message: 'Internal Server Error' });
-    }
-    finally{
+      console.error("Error creating product:", error);
+      res.status(500).json({ message: "Internal Server Error" });
+    } finally {
       // Clean up uploaded file if it exists and hasn't been deleted
       if (req.file && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
@@ -196,14 +216,15 @@ export const createProduct = [
   },
 ];
 
-
-
-export const addVariantToProduct = async (req: Request, res: Response): Promise<void> => {
+export const addVariantToProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   // Validate the incoming request body
   const validation = z.array(productVariantSchema).safeParse(req.body.variants); // expects an array of variants
 
   if (!validation.success) {
-    const errorMessages = validation.error.errors.map(e => e.message);
+    const errorMessages = validation.error.errors.map((e) => e.message);
     res.status(400).json({ message: errorMessages });
     return;
   }
@@ -229,45 +250,51 @@ export const addVariantToProduct = async (req: Request, res: Response): Promise<
     });
 
     res.status(200).json({
-      message: 'Variants added successfully',
+      message: "Variants added successfully",
       product: updatedProduct,
     });
   } catch (error) {
-    console.log('Error adding variants:', error); // Log the error for debugging
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.log("Error adding variants:", error); // Log the error for debugging
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-export const getAllProducts = async (req: Request, res: Response): Promise<void> => {
+export const getAllProducts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     // Fetch all products from the database
-    const products = await prisma.product.findMany(({
+    const products = await prisma.product.findMany({
       include: {
         variants: true, // Include variants related to each product
       },
-    }));
+    });
 
     // Check if products are found
     if (products.length === 0) {
-      res.status(404).json({ message: 'No products found' });
+      res.status(404).json({ message: "No products found" });
       return;
     }
 
     // Return the list of products
     res.status(200).json(products);
   } catch (error) {
-    console.error('Error fetching products:', error); // Log the error for debugging
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching products:", error); // Log the error for debugging
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
-export const editProduct = async (req: Request, res: Response): Promise<void> => {
+export const editProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const productId = Number(req.params.id); // Extract product ID from the request parameters
 
   // Validate incoming data but allow partial updates
   const validation = productSchema.partial().safeParse(req.body); // Use .partial() to allow optional fields
 
   if (!validation.success) {
-    const errorMessages = validation.error.errors.map(e => e.message);
+    const errorMessages = validation.error.errors.map((e) => e.message);
     res.status(400).json({ message: errorMessages });
     return;
   }
@@ -290,7 +317,7 @@ export const editProduct = async (req: Request, res: Response): Promise<void> =>
     });
 
     if (!existingProduct) {
-      res.status(404).json({ message: 'Product not found' });
+      res.status(404).json({ message: "Product not found" });
       return;
     }
 
@@ -311,15 +338,18 @@ export const editProduct = async (req: Request, res: Response): Promise<void> =>
     });
 
     res.status(200).json({
-      message: 'Product updated successfully',
+      message: "Product updated successfully",
       product: updatedProduct,
     });
   } catch (error) {
-    console.error('Error updating product:', error); // Log the error for debugging
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error updating product:", error); // Log the error for debugging
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
-export const getCategory = async (req: Request, res: Response): Promise<void> => {
+export const getCategory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     // Fetch all category from the database
     const category = await prisma.category.findMany();
@@ -327,13 +357,16 @@ export const getCategory = async (req: Request, res: Response): Promise<void> =>
     // Return the category in the response
     res.status(200).json(category);
   } catch (error) {
-    console.error('Error fetching category:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching category:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-export const deleteProduct= async (req: Request, res: Response): Promise<void> => {
-  const productId = Number(req.params.id)
+export const deleteProduct = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const productId = Number(req.params.id);
 
   try {
     // Check for dependent records in OrderItem
@@ -342,8 +375,10 @@ export const deleteProduct= async (req: Request, res: Response): Promise<void> =
     });
 
     if (orderItems.length > 0) {
-      res.status(400).json({ error: 'Cannot delete product. It has associated order items.' });
-      return
+      res.status(400).json({
+        error: "Cannot delete product. It has associated order items.",
+      });
+      return;
     }
 
     // If no dependencies, proceed to delete
@@ -351,14 +386,14 @@ export const deleteProduct= async (req: Request, res: Response): Promise<void> =
       where: { id: productId },
     });
 
-    res.status(200).json({ message: 'Product deleted successfully.' });
-    return
+    res.status(200).json({ message: "Product deleted successfully." });
+    return;
   } catch (error) {
-    console.error('Error deleting product:', error);
-    res.status(500).json({ error: 'Failed to delete product.' });
-    return
+    console.error("Error deleting product:", error);
+    res.status(500).json({ error: "Failed to delete product." });
+    return;
   }
-}
+};
 // export const exportProductsToExcel = async (req: Request, res: Response): Promise<void> => {
 //   try {
 //     // Fetch all products from the database
@@ -405,7 +440,10 @@ export const deleteProduct= async (req: Request, res: Response): Promise<void> =
 //   }
 // };
 
-export const getAllOrders = async (req: Request, res: Response): Promise<void> => {
+export const getAllOrders = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const orders = await prisma.order.findMany({
       include: {
@@ -436,7 +474,7 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
           },
         },
         partialPayment: true, // Include partial payment details
-      }
+      },
     });
 
     // Fetch variant details and format response data
@@ -456,12 +494,12 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
                 ...item,
                 variant: variant
                   ? `${variant.variantName}: ${variant.variantValue}`
-                  : '', // Handle if variant data is missing
+                  : "", // Handle if variant data is missing
               };
             } else {
               return {
                 ...item,
-                variant: '', // If there's no variant ID
+                variant: "", // If there's no variant ID
               };
             }
           })
@@ -478,10 +516,10 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
           : null;
 
         return {
-          orderId:order.id,
+          orderId: order.id,
           shopName: order.shopkeeper.name,
-          employeeName: order.salesperson?.name || 'Not Assigned',
-          distributorName: order.distributor?.name || 'Not Assigned',
+          employeeName: order.salesperson?.name || "Not Assigned",
+          distributorName: order.distributor?.name || "Not Assigned",
           orderDate: order.orderDate,
           contactNumber: order.shopkeeper.contactNumber,
           products: itemsWithVariants.map((item) => ({
@@ -501,15 +539,16 @@ export const getAllOrders = async (req: Request, res: Response): Promise<void> =
 
     res.status(200).json(responseData);
   } catch (error) {
-    console.error('Error retrieving orders:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error retrieving orders:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-
-
 // Controller to get all distributors
-export const getAllDistributors = async (req: Request, res: Response): Promise<void> => {
+export const getAllDistributors = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     // Fetch all distributors from the database
     const distributors = await prisma.distributor.findMany();
@@ -517,12 +556,15 @@ export const getAllDistributors = async (req: Request, res: Response): Promise<v
     // Return the distributors in the response
     res.status(200).json(distributors);
   } catch (error) {
-    console.error('Error fetching distributors:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching distributors:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 // Controller to get all salesperson
-export const getAllSalesperson = async (req: Request, res: Response): Promise<void> => {
+export const getAllSalesperson = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     // Fetch all salesperson from the database
     const salesperson = await prisma.salesperson.findMany();
@@ -530,12 +572,15 @@ export const getAllSalesperson = async (req: Request, res: Response): Promise<vo
     // Return the salesperson in the response
     res.status(200).json(salesperson);
   } catch (error) {
-    console.error('Error fetching salesperson:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching salesperson:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-export const deleteDistributor = async (req: Request, res: Response): Promise<void> => {
+export const deleteDistributor = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { id } = req.params; // Get the ID from the request parameters
 
   try {
@@ -546,7 +591,7 @@ export const deleteDistributor = async (req: Request, res: Response): Promise<vo
 
     if (!distributor) {
       // If distributor is not found, return a 404 error
-      res.status(404).json({ message: 'Distributor not found' });
+      res.status(404).json({ message: "Distributor not found" });
       return;
     }
 
@@ -556,14 +601,17 @@ export const deleteDistributor = async (req: Request, res: Response): Promise<vo
     });
 
     // Return a success message
-    res.status(200).json({ message: 'Distributor deleted successfully' });
+    res.status(200).json({ message: "Distributor deleted successfully" });
   } catch (error) {
-    console.error('Error deleting distributor:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error deleting distributor:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-export const editDistributor = async (req: Request, res: Response): Promise<void> => {
+export const editDistributor = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const { id } = req.params; // Get the ID from the request parameters
   const { name, email, phoneNumber, gstNumber, pan, address } = req.body; // Get the updated data from the request body
 
@@ -575,7 +623,7 @@ export const editDistributor = async (req: Request, res: Response): Promise<void
 
     if (!distributor) {
       // If distributor is not found, return a 404 error
-      res.status(404).json({ message: 'Distributor not found' });
+      res.status(404).json({ message: "Distributor not found" });
       return;
     }
 
@@ -594,12 +642,12 @@ export const editDistributor = async (req: Request, res: Response): Promise<void
 
     // Return the updated distributor
     res.status(200).json({
-      message: 'Distributor updated successfully',
+      message: "Distributor updated successfully",
       distributor: updatedDistributor,
     });
   } catch (error) {
-    console.error('Error updating distributor:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error updating distributor:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
@@ -610,7 +658,7 @@ export const getShops = async (req: Request, res: Response): Promise<void> => {
       include: {
         salesperson: {
           select: {
-            name: true,  // Only fetch the name of the salesperson
+            name: true, // Only fetch the name of the salesperson
           },
         },
       },
@@ -619,7 +667,65 @@ export const getShops = async (req: Request, res: Response): Promise<void> => {
     // Return the shopkeeper data with salesperson name
     res.status(200).json(shopkeepers);
   } catch (error) {
-    console.error('Error fetching shopkeeper:', error);
-    res.status(500).json({ message: 'Internal Server Error' });
+    console.error("Error fetching shopkeeper:", error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+
+
+
+
+// -----------------------------------------------------ProductInventory---------------------------------------------------------------
+
+export const createProductInventory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { productId, productName, quantity } = req.body;
+
+    // Validate required fields
+    if (!productId || !productName || quantity === undefined) {
+      res.status(400).json({ error: "Missing required fields" });
+    }
+
+    // Insert into the database
+    const newInventory = await prisma.productInventory.create({
+      data: {
+        productId,
+        productName,
+        quantity,
+      },
+    });
+
+    res.status(201).json(newInventory);
+  } catch (error) {
+    console.error("Error creating inventory:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
+export const updateProductInventory = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { productId } = req.params;
+    const { quantity } = req.body;
+
+    if (quantity === undefined) {
+      res.status(400).json({ error: "Quantity is required" });
+    }
+
+    const updatedInventory = await prisma.productInventory.update({
+      where: { productId: parseInt(productId) },
+      data: { quantity },
+    });
+
+    res.status(200).json(updatedInventory);
+  } catch (error) {
+    console.error("Error updating inventory:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 };
