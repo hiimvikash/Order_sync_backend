@@ -169,7 +169,7 @@ export const updateOrderDetails = async (req: Request, res: Response): Promise<v
       for (const item of items) {
         const { productId, variantId, quantity } = item;
 
-        if (!productId || !quantity) {
+        if (!productId) {
           res.status(400).json({ message: 'productId and quantity are required for each item' });
           return;
         }
