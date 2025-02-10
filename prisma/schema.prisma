@@ -184,3 +184,19 @@ model ProductInventory {
   reserve2       String         @default("USE ME LATER")
   reserve3       String         @default("USE ME LATER")
 }
+
+model DistributorOrder {
+  id             Int            @id @default(autoincrement())
+
+  distributorId  Int
+  distributorName String
+
+  productId      Int          
+  productName    String
+
+  quantity       Int
+
+  dispatchDate   DateTime       @default(now())
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}

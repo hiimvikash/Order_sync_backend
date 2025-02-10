@@ -729,3 +729,56 @@ export const updateProductInventory = async (
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+
+
+export const placeOrderforDistributor = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { distributorName, distributorId, productId, productName, quantity } = req.body;
+
+    // Validate input
+    if (!distributorName || !distributorId || !productId || !productName || !quantity) {
+       res.status(400).json({ error: "All fields are required" });
+    }
+
+    // Fetch product inventory
+    const product = await prisma.productInventory.findUnique({
+      where: { productId },
+    });
+
+    if (!product) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    if (product.quantity < quantity) {
+       res.status(400).json({ error: "Insufficient stock" });
+    }
+
+    // Create order
+    const order = await prisma.distributorOrder.create({
+      data: {
+        distributorId,
+        distributorName,
+        productId,
+        productName,
+        quantity,
+      },
+    });
+
+    // Update product inventory
+    await prisma.productInventory.update({
+      where: { productId },
+      data: { quantity: product.quantity - quantity },
+    });
+
+     res.status(201).json({ message: "Order placed successfully", order });
+  } catch (error) {
+    console.error("Error placing order:", error);
+     res.status(500).json({ error: "Internal Server Error" });
+  }
+}
+

@@ -15,6 +15,7 @@ import {
   getAllSalesperson,
   getCategory,
   getShops,
+  placeOrderforDistributor,
   signup,
   updateProductInventory,
 } from "../controllers/admin/adminController";
@@ -71,6 +72,6 @@ adminRoute.put(
   updateProductInventory
 );
 
-export default adminRoute;
+adminRoute.post("/distributor-order", verifyRole(['ADMIN']), placeOrderforDistributor);
 
-// adminRoute.get('/export/products', verifyRole(['ADMIN']), exportProductsToExcel);
+export default adminRoute;
