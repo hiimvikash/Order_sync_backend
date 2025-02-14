@@ -173,7 +173,7 @@ enum OrderStatus {
 
 model ProductInventory {
   id             Int           @default(autoincrement())
-  productId      Int           @id
+  productId      Int           
   productName    String
   quantity       Int
   createdAt      DateTime       @default(now())
@@ -183,10 +183,12 @@ model ProductInventory {
   reserve1       String         @default("USE ME LATER")
   reserve2       String         @default("USE ME LATER")
   reserve3       String         @default("USE ME LATER")
+
+  @@id([productId, createdAt])
 }
 
 model DistributorOrder {
-  id             Int            @id @default(autoincrement())
+  id             Int            @default(autoincrement())
 
   distributorId  Int
   distributorName String
@@ -199,4 +201,5 @@ model DistributorOrder {
   dispatchDate   DateTime       @default(now())
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  @@id([distributorId, dispatchDate])
 }

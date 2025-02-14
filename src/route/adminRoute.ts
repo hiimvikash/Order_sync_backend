@@ -14,10 +14,12 @@ import {
   getAllProducts,
   getAllSalesperson,
   getCategory,
+  getDistributorOrderQuantity,
+  getProductInventoryQuantity,
   getShops,
   placeOrderforDistributor,
   signup,
-  updateProductInventory,
+
 } from "../controllers/admin/adminController";
 import {
   createDistributor,
@@ -61,15 +63,22 @@ adminRoute.put("/distributor/:id", verifyRole(["ADMIN"]), editDistributor);
 adminRoute.get("/get-orders", verifyRole(["ADMIN"]), getAllOrders);
 adminRoute.get("/get-shops", verifyRole(["ADMIN"]), getShops);
 
-adminRoute.get(
+adminRoute.post(
   "/create-inventory",
   verifyRole(["ADMIN"]),
   createProductInventory
 );
-adminRoute.put(
-  "/inventory/:productId",
+
+adminRoute.get(
+  "/get-inventory/:productId",
   verifyRole(["ADMIN"]),
-  updateProductInventory
+  getProductInventoryQuantity
+);
+
+adminRoute.post(
+  "/distributorOrderCount",
+  verifyRole(["ADMIN"]),
+  getDistributorOrderQuantity
 );
 
 adminRoute.post("/distributor-order", verifyRole(['ADMIN']), placeOrderforDistributor);

@@ -678,16 +678,22 @@ export const getShops = async (req: Request, res: Response): Promise<void> => {
 
 // -----------------------------------------------------ProductInventory---------------------------------------------------------------
 
+
+
 export const createProductInventory = async (
   req: Request,
   res: Response
-): Promise<void> => {
+) => {
   try {
+    console.log("first")
     const { productId, productName, quantity } = req.body;
+    console.log(req.body);
 
     // Validate required fields
     if (!productId || !productName || quantity === undefined) {
-      res.status(400).json({ error: "Missing required fields" });
+      console.log("second");
+       res.status(400).json({ error: "Missing required fields" });
+       return;
     }
 
     // Insert into the database
@@ -695,38 +701,15 @@ export const createProductInventory = async (
       data: {
         productId,
         productName,
-        quantity,
+        quantity : Number(quantity),
       },
     });
 
-    res.status(201).json(newInventory);
+     res.status(201).json(newInventory);
   } catch (error) {
     console.error("Error creating inventory:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-};
-
-export const updateProductInventory = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const { productId } = req.params;
-    const { quantity } = req.body;
-
-    if (quantity === undefined) {
-      res.status(400).json({ error: "Quantity is required" });
-    }
-
-    const updatedInventory = await prisma.productInventory.update({
-      where: { productId: parseInt(productId) },
-      data: { quantity },
-    });
-
-    res.status(200).json(updatedInventory);
-  } catch (error) {
-    console.error("Error updating inventory:", error);
-    res.status(500).json({ error: "Internal server error" });
+     res.status(500).json({ error: "Internal server error" });
+     return;
   }
 };
 
@@ -742,20 +725,20 @@ export const placeOrderforDistributor = async (
     // Validate input
     if (!distributorName || !distributorId || !productId || !productName || !quantity) {
        res.status(400).json({ error: "All fields are required" });
+       return;
     }
 
-    // Fetch product inventory
-    const product = await prisma.productInventory.findUnique({
-      where: { productId },
-    });
+    // Fetch available quantity from inventory
+    const availableQuantity = await getInventoryQuantity(Number(productId));
 
-    if (!product) {
-      res.status(404).json({ error: "Product not found" });
+    if (!availableQuantity) {
+       res.status(404).json({ error: "Product not found in inventory" });
+       return
+    }
+
+    if (availableQuantity < quantity) {
+      res.status(400).json({ error: "Insufficient stock" });
       return;
-    }
-
-    if (product.quantity < quantity) {
-       res.status(400).json({ error: "Insufficient stock" });
     }
 
     // Create order
@@ -765,20 +748,143 @@ export const placeOrderforDistributor = async (
         distributorName,
         productId,
         productName,
-        quantity,
+        quantity : Number(quantity),
       },
     });
 
-    // Update product inventory
-    await prisma.productInventory.update({
-      where: { productId },
-      data: { quantity: product.quantity - quantity },
-    });
-
-     res.status(201).json({ message: "Order placed successfully", order });
+    res.status(201).json({ message: "Order placed successfully", order });
+    return;
   } catch (error) {
     console.error("Error placing order:", error);
-     res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+
+
+
+export const getProductInventoryQuantity = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const { productId } = req.params;
+
+    const availableQuantity = await getInventoryQuantity(Number(productId));
+    if(!availableQuantity){
+      res.status(404).json({ error: "No such product in the inventory" });
+      return;
+    }
+    res.status(200).json(availableQuantity);
+  } catch (error) {
+    console.error("Error fetching inventory quantity:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 }
+
+
+
+export const getDistributorOrderQuantity = async (req: Request, res: Response) => {
+  try {
+    const { distributorId, productId, startDate, endDate } = req.body;
+
+    // Validate input
+    if (!distributorId || !productId || !startDate || !endDate) {
+       res.status(400).json({ error: "All fields are required" });
+       return;
+    }
+
+    // Convert startDate and endDate to Date objects
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Normalize startDate to the start of the day (00:00:00)
+    start.setUTCHours(0, 0, 0, 0);
+
+    // Normalize endDate to the end of the day (23:59:59)
+    end.setUTCHours(23, 59, 59, 999);
+
+    // Ensure valid date range
+    if (start > end) {
+       res.status(400).json({ error: "Invalid date range" });
+       return;
+    }
+
+    // Aggregate the total quantity
+    const totalQuantity = await prisma.distributorOrder.aggregate({
+      where: {
+        distributorId: Number(distributorId),
+        productId: Number(productId),
+        dispatchDate: {
+          gte: start, // From start of selected date
+          lte: end,   // Until end of selected date
+        },
+      },
+      _sum: { quantity: true },
+    });
+
+    const finalQuantity = totalQuantity._sum.quantity ?? 0;
+
+    // Send response
+     res.status(200).json(finalQuantity);
+     return;
+  } catch (error) {
+    console.error("Error fetching order quantity:", error);
+     res.status(500).json({ error: "Internal Server Error" });
+     return;
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const getInventoryQuantity = async (productId: number) => {
+  // Fetch total incoming quantity
+  const totalIncomingQuantity = await prisma.productInventory.aggregate({
+    where: { productId },
+    _sum: { quantity: true },
+  });
+
+  if(!totalIncomingQuantity._sum.quantity){
+    return null;
+  }
+
+  const finalIncomingQuantity = totalIncomingQuantity._sum.quantity ?? 0;
+
+  // Fetch total outgoing quantity
+  const totalOutgoingQuantity = await prisma.distributorOrder.aggregate({
+    where: { productId },
+    _sum: { quantity: true },
+  });
+
+  const finalOutgoingQuantity = totalOutgoingQuantity._sum.quantity ?? 0;
+
+  // Calculate available stock
+  return finalIncomingQuantity - finalOutgoingQuantity;
+};
 
